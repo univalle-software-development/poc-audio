@@ -220,5 +220,3 @@ We welcome contributions! Here's how you can help:
 ## 📝 License
 
 This project is open source and available under the MIT License.
-
-# nextjsaichatconvextemplate
