@@ -7,7 +7,7 @@ This is a simple chat application built with Next.js, Convex, and Tailwind CSS. 
 ## Features
 
 - Real-time chat interface using Convex and the Vercel AI SDK (`useChat`) for data synchronization and state management.
-- AI responses powered by OpenAI (potentially supporting multiple models via `convex/multiModelAI.ts`).
+- AI responses powered by OpenAI, generated asynchronously in the background using Convex Actions to keep the UI responsive (potentially supporting multiple models via `convex/multiModelAI.ts`).
 - Persistent storage of conversation history and chat sessions in the Convex database.
 - Ability to clear the current chat session (managed via `convex/chats.ts`).
 - Management of AI model preferences (implied by `convex/modelPreferences.ts`).
@@ -99,7 +99,7 @@ nextjs-convex-demo/
 │   ├── init.ts              # Initial data seeding
 │   ├── messages.ts          # Message query/mutation functions
 │   ├── modelPreferences.ts  # AI model preference logic
-│   ├── multiModelAI.ts      # Core AI interaction action
+│   ├── multiModelAI.ts      # Core Convex Action responsible for interacting with AI models (e.g., OpenAI) asynchronously in the background.
 │   ├── openai.ts            # OpenAI action wrappers (re-exports)
 │   ├── useOpenAI.ts         # Direct OpenAI interaction actions
 │   └── _generated/          # Auto-generated Convex types and API (DO NOT EDIT)
@@ -132,6 +132,7 @@ nextjs-convex-demo/
 - **`convex/messages.ts`**: Contains Convex query and mutation functions related to messages (e.g., `list`, `send`).
 - **`convex/chats.ts`**: Contains Convex query and mutation functions related to chat sessions (e.g., `getOrCreate`, `clear`).
 - **`convex/openai.ts`**: Contains the Convex action (`chat`) responsible for interacting with the OpenAI API to generate AI responses.
+- **`convex/multiModelAI.ts`**: Core Convex Action responsible for interacting with AI models (e.g., OpenAI) asynchronously in the background.
 - **`convex/_generated/`**: Automatically generated files by Convex, including API definitions and types based on your schema and functions. **Do not edit directly.**
 - **`.env.local`**: Local environment variables (only `NEXT_PUBLIC_CONVEX_URL` for development). Sensitive keys like `OPENAI_API_KEY` should be managed in the Convex dashboard.
 - **`README.md`**: This file, providing information about the project.

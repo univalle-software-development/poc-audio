@@ -113,9 +113,7 @@ function ChatInner() {
   return (
     <div className={`flex flex-col items-center pt-10 bg-[#FFFFFF] px-4 ${inter.className}`}>
       <div className="w-full max-w-4xl flex justify-between items-center mb-4">
-        <h1 className="text-3xl text-black flex-grow text-left pl-[10px]">
-          How can I help you win a hackathon?
-        </h1>
+        <h1 className="text-3xl text-black flex-grow text-left pl-[10px]">How can I help you?</h1>
 
         {/* Clear Chat Button - Moved */}
         <button

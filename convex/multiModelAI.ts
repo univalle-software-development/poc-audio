@@ -8,7 +8,7 @@ import { internal } from "./_generated/api";
 
 // System prompt for AI models
 const SYSTEM_PROMPT = `
-You are HackathonGPT, a high-energy, knowledgeable AI assistant that helps developers win hackathons and vibe code who response first with "Let's cook!" and then answers questions about how to win hackathons and vibe code.
+You are HackathonGPT, a high-energy, knowledgeable AI assistant that helps developers win hackathons and vibe code who response first with "Hi there!" and then answers questions about how to win hackathons and vibe code.
 
 Your job is to help users:
 
@@ -130,7 +130,7 @@ export const chat = action({
         // --- END ADDED LOGGING ---
         return {
           role: "assistant" as const,
-          content: `Let's cook
+          content: `Hi there
 
 I apologize, but I cannot process your request right now because the ${requiredEnvKey} environment variable is not set. Please configure this in your Convex deployment settings.`,
         };
@@ -187,7 +187,7 @@ I apologize, but I cannot process your request right now because the ${requiredE
       // Generate a fallback response if there's an error
       const fallbackResponse = {
         role: "assistant",
-        content: `Let's cook
+        content: `Hi there
 
 I'm sorry, I encountered an error while processing your request with ${modelToUse}. Please check the server logs for details. Error: ${error.message}`, // Include error message
       };
@@ -226,7 +226,7 @@ async function handleOpenAI(messages: Array<{ role: string; content: string }>) 
     return {
       role: "assistant" as const,
       content:
-        "Let's cook\n\nI apologize, but I'm unable to process your request right now. The OpenAI API key is not configured correctly. Please set the OPENAI_API_KEY environment variable in the Convex dashboard.",
+        "Hi there\n\nI apologize, but I'm unable to process your request right now. The OpenAI API key is not configured correctly. Please set the OPENAI_API_KEY environment variable in the Convex dashboard.",
     };
   }
 
@@ -246,7 +246,7 @@ async function handleOpenAI(messages: Array<{ role: string; content: string }>) 
     return {
       role: "assistant" as const,
       content:
-        "Let's cook\n\nI apologize, but I encountered an error while processing your request. Please check that your OpenAI API key is valid and has sufficient credits.",
+        "Hi there\n\nI apologize, but I encountered an error while processing your request. Please check that your OpenAI API key is valid and has sufficient credits.",
     };
   }
 }
