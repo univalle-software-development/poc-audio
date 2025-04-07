@@ -2,7 +2,7 @@
 
 This is a simple chat application built with Next.js, Convex, and Tailwind CSS. It allows users to chat with an AI assistant powered by OpenAI.
 
-![Chat Interface Screenshot](docs/images/chat-screenshot.png)
+![Chat Interface Screenshot](https://github.com/waynesutton/nextjsaichatconvextemplate/blob/main/CleanShot%202025-04-07%20at%2011.23.25%402x.png)
 
 ## Features
 
