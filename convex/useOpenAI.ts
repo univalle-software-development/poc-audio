@@ -25,7 +25,7 @@ export const chat = action({
     messages: v.array(
       v.object({
         content: v.string(),
-        role: v.string(),
+        role: v.union(v.literal("system"), v.literal("user"), v.literal("assistant")),
       })
     ),
   },
@@ -49,7 +49,7 @@ export const streamChat = action({
     messages: v.array(
       v.object({
         content: v.string(),
-        role: v.string(),
+        role: v.union(v.literal("system"), v.literal("user"), v.literal("assistant")),
       })
     ),
   },

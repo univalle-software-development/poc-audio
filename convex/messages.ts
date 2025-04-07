@@ -37,16 +37,23 @@ export const list = query({
     chatId: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    let query = ctx.db.query("messages");
-
+    // Determine the base query based on arguments
+    let finalQuery;
     if (args.userId) {
-      query = query.withIndex("by_user", (q) => q.eq("userId", args.userId));
+      finalQuery = ctx.db
+        .query("messages")
+        .withIndex("by_user", (q) => q.eq("userId", args.userId));
     } else if (args.chatId) {
-      query = query.withIndex("by_chat", (q) => q.eq("chatId", args.chatId));
+      finalQuery = ctx.db
+        .query("messages")
+        .withIndex("by_chat", (q) => q.eq("chatId", args.chatId));
+    } else {
+      // If neither userId nor chatId is provided, use the base table query
+      finalQuery = ctx.db.query("messages");
     }
 
     // Order by createdAt if available, otherwise by _creationTime
-    return await query.order("asc").collect();
+    return await finalQuery.order("asc").collect();
   },
 });
 
