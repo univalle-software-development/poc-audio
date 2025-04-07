@@ -29,7 +29,7 @@
 "border": "hsl(0 0% 90%)",
 "input": "hsl(0 0% 90%)",
 "ring": "hsl(0 0% 0%)",
-"body_background": "#F9F8F6"
+"body_background": "#ffffff"
 }
 },
 "features": [

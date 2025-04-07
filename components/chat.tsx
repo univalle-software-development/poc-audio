@@ -111,7 +111,7 @@ function ChatInner() {
   // };
 
   return (
-    <div className={`flex flex-col items-center pt-10 bg-[#F9F8F6] px-4 ${inter.className}`}>
+    <div className={`flex flex-col items-center pt-10 bg-[#FFFFFF] px-4 ${inter.className}`}>
       <div className="w-full max-w-4xl flex justify-between items-center mb-4">
         <h1 className="text-3xl text-black flex-grow text-left pl-[10px]">
           How can I help you win a hackathon?
@@ -172,7 +172,7 @@ function ChatInner() {
 
       {/* Model Command Hint and Last Model Command Display Removed */}
 
-      <div className="w-full max-w-4xl bg-white shadow-sm rounded-lg rounded-chat">
+      <div className="w-full max-w-4xl bg-white shadow-sm rounded-lg rounded-chat border border-zinc-200">
         <div
           ref={chatContainerRef}
           className="overflow-y-auto transition-all duration-300 ease-in-out">
