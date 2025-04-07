@@ -1,4 +1,4 @@
-# Next.js + Convex Chat App Template
+# Next.js + Convex AI Chat Template
 
 This is a simple chat application built with Next.js, Convex, and Tailwind CSS. It allows users to chat with an AI assistant powered by OpenAI.
 
