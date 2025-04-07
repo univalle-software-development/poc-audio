@@ -1,16 +1,18 @@
-# Next.js + Convex Chat App
+# Next.js + Convex Chat App Template
 
 This is a simple chat application built with Next.js, Convex, and Tailwind CSS. It allows users to chat with an AI assistant powered by OpenAI.
 
 ## Features
 
-- Real-time chat interface using Convex for data synchronization.
-- AI responses powered by OpenAI (configurable model).
-- Conversation history stored persistently in the Convex database.
-- Ability to clear the current chat session.
-- Responsive design suitable for various screen sizes.
-- User input handling with `react-textarea-autosize`.
-- Styled with Tailwind CSS.
+- Real-time chat interface using Convex and the Vercel AI SDK (`useChat`) for data synchronization and state management.
+- AI responses powered by OpenAI (potentially supporting multiple models via `convex/multiModelAI.ts`).
+- Persistent storage of conversation history and chat sessions in the Convex database.
+- Ability to clear the current chat session (managed via `convex/chats.ts`).
+- Management of AI model preferences (implied by `convex/modelPreferences.ts`).
+- Chat message archival functionality (implied by `convex/chat.ts`).
+- User input handling with automatic textarea resizing (`react-textarea-autosize`).
+- Responsive UI styled with Tailwind CSS and Shadcn/ui components.
+- Toast notifications for user feedback (`hooks/use-toast.ts`).
 
 ## Getting Started (Local Development)
 
@@ -215,4 +217,5 @@ We welcome contributions! Here's how you can help:
 ## 📝 License
 
 This project is open source and available under the MIT License.
+
 # nextjsaichatconvextemplate
