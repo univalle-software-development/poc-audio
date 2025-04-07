@@ -2,6 +2,8 @@
 
 This is a simple chat application built with Next.js, Convex, and Tailwind CSS. It allows users to chat with an AI assistant powered by OpenAI.
 
+![Chat Interface Screenshot](docs/images/chat-screenshot.png)
+
 ## Features
 
 - Real-time chat interface using Convex and the Vercel AI SDK (`useChat`) for data synchronization and state management.
@@ -19,8 +21,8 @@ This is a simple chat application built with Next.js, Convex, and Tailwind CSS. 
 1.  **Clone the repository:**
 
     ```bash
-    git clone <your-repo-url>
-    cd nextjs-convex-demo
+    git clone https://github.com/waynesutton/nextjsaichatconvextemplate
+    cd nextjsaichatconvextemplate
     ```
 
 2.  **Install dependencies:**
@@ -208,7 +210,7 @@ _(Optional) Run Setup Function for Previews:_ If you need to seed data in your p
 
 We welcome contributions! Here's how you can help:
 
-1. Fork the repository
+1. Fork the repository ([https://github.com/waynesutton/nextjsaichatconvextemplate](https://github.com/waynesutton/nextjsaichatconvextemplate))
 2. Create your feature branch: `git checkout -b feature/amazing-feature`
 3. Commit your changes: `git commit -m 'Add amazing feature'`
 4. Push to the branch: `git push origin feature/amazing-feature`
