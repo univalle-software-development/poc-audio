@@ -41,19 +41,14 @@ export function Footer() {
           </div>
           <div className="flex gap-6">
             <Link
-              href="https://github.com"
+              href="https://convex.link/nextchatdemo"
+              className="text-gray-600 hover:text-gray-900 transition-colors">
+              Convex
+            </Link>
+            <Link
+              href="https://github.com/waynesutton/nextjsaichatconvextemplate"
               className="text-gray-600 hover:text-gray-900 transition-colors">
               <Github size={20} />
-            </Link>
-            <Link
-              href="https://twitter.com"
-              className="text-gray-600 hover:text-gray-900 transition-colors">
-              <Twitter size={20} />
-            </Link>
-            <Link
-              href="https://linkedin.com"
-              className="text-gray-600 hover:text-gray-900 transition-colors">
-              <Linkedin size={20} />
             </Link>
           </div>
         </div>
