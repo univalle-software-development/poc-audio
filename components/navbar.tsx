@@ -32,17 +32,7 @@ export function Navbar() {
         className="tubelight absolute top-0 -translate-x-1/2 h-1 w-20 bg-blue-500 blur-[16px] pointer-events-none"
       />
       <div className="max-w-7xl mx-auto w-full flex items-center">
-        <Link href="/" className="text-xl absolute left-8">
-          <Image
-            src="/golangers.webp"
-            width={50}
-            height={50}
-            alt="Picture of the author"
-          />
-        </Link>
-        <div className="mx-auto">
-          <NavLinks />
-        </div>
+        {/* Logo removed - moved to chat component */}
       </div>
     </nav>
   );

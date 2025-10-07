@@ -26,29 +26,32 @@ export function Footer() {
   }, []);
 
   return (
-    <footer ref={footerRef} className="relative mt-auto">
+    <footer ref={footerRef} className="mt-auto">
       {/* <div className="h-16 flex items-center justify-center">
         <NavLinks />
       </div> */}
-      <div className="h-16 flex items-center px-4 overflow-hidden">
+      <div className="min-h-16 flex items-center px-4">
         <div
           ref={tubelightRef}
           className="tubelight absolute bottom-0 -translate-x-1/2 h-1 w-20 bg-blue-500 blur-[16px] pointer-events-none"
         />
-        <div className="max-w-7xl mx-auto w-full flex items-center justify-between">
-          <div className="text-sm text-gray-600">
-            © {new Date().getFullYear()} Universidad del Valle, PROYECTO INTEGRADOR II-01 .
+        <div className="max-w-4xl mx-auto w-full flex flex-col gap-3 items-center justify-between text-center sm:text-left sm:flex-row sm:gap-0">
+          <div className="text-sm text-gray-600 order-2 sm:order-1">
+            © {new Date().getFullYear()} Universidad del Valle, PROYECTO INTEGRADOR II-01.
           </div>
-          <div className="flex gap-6">
+          <div className="flex gap-4 order-1 sm:order-2">
             {/* <Link
               href="https://convex.link/nextchatdemo"
               className="text-gray-600 hover:text-gray-900 transition-colors">
               Convex
             </Link> */}
             <Link
-              href="https://github.com/waynesutton/nextjsaichatconvextemplate"
-              className="text-gray-600 hover:text-gray-900 transition-colors">
-              <Github size={20} />
+              href="https://github.com/univalle-software-development/poc-audio"
+              target="_blank"
+              className="text-gray-600 hover:text-gray-900 transition-colors flex items-center gap-2 text-sm">
+              <Github size={18} />
+              <span className="hidden sm:inline">univalle-software-development/poc-audio</span>
+              <span className="sm:hidden">GitHub</span>
             </Link>
           </div>
         </div>

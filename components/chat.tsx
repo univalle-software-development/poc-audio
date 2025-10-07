@@ -6,6 +6,8 @@ import { Inter } from "next/font/google";
 import { KeyboardEvent, useRef, useEffect, useState } from "react";
 import { useConvexChat, ConvexChatProvider } from "@/components/convex-chat-provider";
 import { Message } from "ai";
+import Image from "next/image";
+import { useSpeechToText } from "@/hooks/use-speech-to-text";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -44,6 +46,17 @@ function ChatInner() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const [initialLoad, setInitialLoad] = useState(true);
+
+  // Speech-to-text hook
+  const {
+    isRecording,
+    transcript,
+    error: speechError,
+    startRecording,
+    stopRecording,
+    resetTranscript,
+  } = useSpeechToText();
+
   // const [showModelSelector, setShowModelSelector] = useState(false); // Removed
 
   // Convert Convex messages to AI Message format for ChatMessage component
@@ -53,10 +66,10 @@ function ChatInner() {
       // Ensure role is valid for Message type
       role:
         msg.role === "user" ||
-        msg.role === "assistant" ||
-        msg.role === "system" ||
-        msg.role === "function" ||
-        msg.role === "tool"
+          msg.role === "assistant" ||
+          msg.role === "system" ||
+          msg.role === "function" ||
+          msg.role === "tool"
           ? msg.role
           : "assistant",
       content: msg.text || msg.content || "",
@@ -89,12 +102,22 @@ function ChatInner() {
     }
   }, [allMessages, initialLoad]);
 
+  // Update input when transcript is available
   useEffect(() => {
-    if (chatContainerRef.current) {
-      const height = Math.min(window.innerHeight * 0.6, Math.max(100, allMessages.length * 100));
-      chatContainerRef.current.style.height = `${height}px`;
+    if (transcript) {
+      // Update the input with the transcript
+      handleInputChange({ target: { value: transcript } } as any);
+      resetTranscript();
     }
-  }, [allMessages]);
+  }, [transcript, resetTranscript]);
+
+  // Show error if speech recognition fails
+  useEffect(() => {
+    if (speechError) {
+      console.error("Speech-to-text error:", speechError);
+      // You could show a toast notification here
+    }
+  }, [speechError]);
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -110,20 +133,45 @@ function ChatInner() {
   //   setShowModelSelector(false);
   // };
 
-  return (
-    <div className={`flex flex-col items-center pt-10 bg-[#FFFFFF] px-4 ${inter.className}`}>
-      <div className="w-full max-w-4xl flex justify-between items-center mb-4">
-        <h1 className="text-3xl text-black flex-grow text-left pl-[10px]">How can I help you?</h1>
+  const handleRecordingToggle = async () => {
+    if (isRecording) {
+      await stopRecording();
+    } else {
+      await startRecording();
+    }
+  };
 
-        {/* Clear Chat Button - Moved */}
+  return (
+    <div className={`flex flex-col h-full px-4 py-4 ${inter.className}`}>
+      <div className="w-full max-w-4xl mx-auto flex justify-between items-center mb-4">
+        {/* Logo */}
+        <div className="flex items-center gap-1">
+          <Image
+            src="/golangers.webp"
+            width={40}
+            height={40}
+            alt="Golangers Logo"
+            draggable={false}
+            onContextMenu={(e) => e.preventDefault()}
+            style={{
+              userSelect: 'none',
+              pointerEvents: 'auto'
+            }}
+          />
+          <h1 className="font-serif italic">
+            POC Audio - Cloud Speech-to-Text
+          </h1>
+        </div>
+
+        {/* Clear Chat Button */}
         <button
           onClick={handleClearChat}
           disabled={isLoading || isClearing || convexMessages.length === 0}
-          className="px-3 py-1.5 rounded-lg bg-white shadow text-sm flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
+          className="p-3 rounded-full bg-red-400 shadow text-sm flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
           {isClearing ? (
             <>
               <svg
-                className="animate-spin -ml-1 mr-1 h-4 w-4 text-gray-700"
+                className="animate-spin -ml-1 mr-1 h-4 w-4 text-white"
                 xmlns="http://www.w3.org/2000/svg"
                 fill="none"
                 viewBox="0 0 24 24">
@@ -139,7 +187,7 @@ function ChatInner() {
                   fill="currentColor"
                   d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
               </svg>
-              Clearing...
+              {/* Clearing... */}
             </>
           ) : (
             <>
@@ -160,7 +208,7 @@ function ChatInner() {
                 <line x1="10" x2="10" y1="11" y2="17" />
                 <line x1="14" x2="14" y1="11" y2="17" />
               </svg>
-              Clear Chat
+
             </>
           )}
         </button>
@@ -170,10 +218,10 @@ function ChatInner() {
 
       {/* Model Command Hint and Last Model Command Display Removed */}
 
-      <div className="w-full max-w-4xl bg-white shadow-sm rounded-lg rounded-chat border border-zinc-200">
+      <div className="w-full max-w-4xl mx-auto flex flex-col backdrop-blur-lg shadow-sm rounded-lg rounded-chat border  flex-1 overflow-hidden">
         <div
           ref={chatContainerRef}
-          className="overflow-y-auto transition-all duration-300 ease-in-out">
+          className="flex-1 overflow-y-auto">
           {allMessages.map((message) => (
             <ChatMessage
               key={message.id}
@@ -184,16 +232,16 @@ function ChatInner() {
           <div ref={messagesEndRef} />
         </div>
 
-        <div className="p-4">
+        <div className=" ">
           <form onSubmit={handleSubmit} className="relative">
             <div
-              className="w-full min-h-[60px] bg-white cursor-text rounded-chat"
+              className="w-full min-h-[60px] cursor-text rounded-chat flex items-center gap-2"
               onClick={(e) => {
                 const textarea = e.currentTarget.querySelector("textarea");
-                if (textarea) textarea.focus();
+                if (textarea && e.target === e.currentTarget) textarea.focus();
               }}>
               <TextareaAutosize
-                className="w-full resize-none px-4 py-3 text-base focus-visible:outline-none disabled:opacity-50 rounded-chat"
+                className="flex-1 resize-none px-4 py-3 text-base focus-visible:outline-none disabled:opacity-50 rounded-chat"
                 placeholder="Send a message..."
                 value={input}
                 onChange={handleInputChange}
@@ -201,6 +249,43 @@ function ChatInner() {
                 rows={1}
                 maxRows={4}
               />
+              <button
+                type="button"
+                onClick={handleRecordingToggle}
+                disabled={isLoading}
+                className={`mr-3 p-2.5 rounded-full transition-all duration-200 ease-in-out ${isRecording
+                  ? "bg-red-500 hover:bg-red-600 shadow-lg scale-110"
+                  : "bg-zinc-100 hover:bg-zinc-200 hover:shadow-md"
+                  } disabled:opacity-50 disabled:cursor-not-allowed group`}
+                aria-label={isRecording ? "Stop recording" : "Start recording"}>
+                {isRecording ? (
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="20"
+                    height="20"
+                    viewBox="0 0 24 24"
+                    fill="white"
+                    className="animate-pulse">
+                    <rect x="6" y="6" width="12" height="12" rx="2" />
+                  </svg>
+                ) : (
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="20"
+                    height="20"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="text-zinc-600 group-hover:text-zinc-800 transition-colors">
+                    <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
+                    <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                    <line x1="12" x2="12" y1="19" y2="22" />
+                  </svg>
+                )}
+              </button>
             </div>
           </form>
         </div>
