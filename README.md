@@ -1,4 +1,912 @@
-# POC Audio - Aplicación de Chat con IA y Speech-to-Text
+# POC Audio - Implementación de Google Cloud Speech-to-Text
+
+## Universidad del Valle - Proyecto Integrador II-01
+**Equipo**: Golangers  
+**Fecha**: Octubre 2025
+
+---
+
+## Descripción
+
+Este proyecto es una prueba de concepto (POC) que implementa Google Cloud Speech-to-Text API en una aplicación web de chat construida con Next.js. El objetivo es demostrar cómo capturar audio del navegador, enviarlo a Google Cloud para transcripción y utilizar el texto resultante en una conversación con IA.
+
+---
+
+## Arquitectura de Speech-to-Text
+
+La implementación se divide en tres componentes principales:
+
+1. **Cliente (Navegador)**: Captura de audio usando MediaRecorder API
+2. **Servidor (Next.js API Route)**: Proxy seguro hacia Google Cloud
+3. **Google Cloud Speech-to-Text**: Servicio de transcripción
+
+```
+┌─────────────────┐      ┌──────────────────┐      ┌─────────────────────┐
+│   Navegador     │─────▶│   Next.js API    │─────▶│  Google Cloud STT   │
+│  MediaRecorder  │      │   /api/speech    │      │   (Transcripción)   │
+└─────────────────┘      └──────────────────┘      └─────────────────────┘
+         │                        │                          │
+         │ Audio Blob             │ Base64                   │ JSON
+         │ (WebM Opus)            │ Audio                    │ {text}
+         ▼                        ▼                          ▼
+```
+
+---
+
+## 1. Captura de Audio en el Cliente
+
+### Archivo: `hooks/use-speech-to-text.ts`
+
+Este hook personalizado de React gestiona todo el proceso de grabación y transcripción de audio.
+
+### Código Explicado
+
+```typescript
+export function useSpeechToText() {
+  const [isRecording, setIsRecording] = useState(false);
+  const [isTranscribing, setIsTranscribing] = useState(false);
+  const [transcript, setTranscript] = useState<string>("");
+  const [error, setError] = useState<string | null>(null);
+
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+```
+
+**¿Por qué usar refs?**
+- `mediaRecorderRef`: Necesitamos mantener la referencia al objeto MediaRecorder entre renders sin causar re-renderizados innecesarios
+- `audioChunksRef`: Los chunks de audio se acumulan durante la grabación. Usar un ref evita que React re-renderice cada vez que se agrega un chunk
+
+### Inicio de Grabación
+
+```typescript
+const startRecording = async () => {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    
+    const mediaRecorder = new MediaRecorder(stream, {
+      mimeType: "audio/webm;codecs=opus",
+    });
+```
+
+**¿Por qué WebM Opus?**
+1. **Compatibilidad**: Es el formato predeterminado en Chrome y Firefox
+2. **Eficiencia**: Opus es un códec de alta compresión diseñado para voz
+3. **Calidad**: Mantiene buena calidad con tamaños de archivo pequeños
+4. **Soporte nativo**: Google Cloud Speech-to-Text soporta WebM Opus directamente
+
+```typescript
+    mediaRecorder.ondataavailable = (event) => {
+      if (event.data.size > 0) {
+        audioChunksRef.current.push(event.data);
+      }
+    };
+```
+
+**¿Por qué acumular chunks?**
+- MediaRecorder genera datos en fragmentos durante la grabación
+- Acumularlos permite construir el audio completo al final
+- Si intentáramos procesar cada chunk individualmente, tendríamos transcripciones parciales y fragmentadas
+
+### Detención de Grabación y Transcripción
+
+```typescript
+const stopRecording = async () => {
+  return new Promise<void>((resolve) => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+      mediaRecorderRef.current.onstop = async () => {
+        const audioBlob = new Blob(audioChunksRef.current, {
+          type: "audio/webm;codecs=opus",
+        });
+```
+
+**¿Por qué crear un Blob?**
+- Los chunks individuales no son un archivo de audio válido
+- `new Blob()` combina todos los chunks en un archivo coherente
+- El tipo MIME especifica el formato para que el servidor lo interprete correctamente
+
+```typescript
+        const formData = new FormData();
+        formData.append("audio", audioBlob, "recording.webm");
+
+        setIsTranscribing(true);
+
+        try {
+          const response = await fetch("/api/speech-to-text", {
+            method: "POST",
+            body: formData,
+          });
+```
+
+**¿Por qué usar FormData?**
+1. **Estándar web**: FormData es el método estándar para enviar archivos en HTTP
+2. **Compatibilidad**: Next.js API Routes lo entienden nativamente
+3. **Multipart**: Permite enviar archivos binarios (audio) junto con otros datos si fuera necesario
+
+**¿Por qué no enviar base64 directamente desde el cliente?**
+- Sería más eficiente enviar el Blob directamente al servidor
+- El servidor se encarga de la conversión a base64 solo cuando es necesario (para Google Cloud)
+- Esto reduce el procesamiento en el cliente y el tamaño de la transferencia
+
+---
+
+## 2. Endpoint del Servidor
+
+### Archivo: `app/api/speech-to-text/route.ts`
+
+Este endpoint actúa como proxy entre el cliente y Google Cloud.
+
+### Código Completo Explicado
+
+```typescript
+import { NextRequest, NextResponse } from "next/server";
+
+export async function POST(request: NextRequest) {
+  try {
+    const formData = await request.formData();
+    const audioFile = formData.get("audio") as Blob;
+```
+
+**¿Por qué validar que el audio existe?**
+```typescript
+    if (!audioFile) {
+      return NextResponse.json(
+        { error: "No audio file provided" },
+        { status: 400 }
+      );
+    }
+```
+- Previene errores en pasos posteriores
+- Retorna un error HTTP 400 (Bad Request) claro al cliente
+- Mejora la experiencia de debugging
+
+### Conversión a Base64
+
+```typescript
+    const arrayBuffer = await audioFile.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+    const base64Audio = buffer.toString("base64");
+```
+
+**¿Por qué esta cadena de conversiones?**
+
+1. **`audioFile.arrayBuffer()`**: Convierte el Blob en un ArrayBuffer (datos binarios en JavaScript)
+2. **`Buffer.from(arrayBuffer)`**: Node.js usa `Buffer` para manipular datos binarios (ArrayBuffer es de navegador)
+3. **`buffer.toString("base64")`**: Google Cloud API requiere el audio en base64 para JSON
+
+**¿Por qué Google Cloud requiere base64?**
+- REST APIs solo transportan texto (JSON)
+- Base64 es el estándar para codificar datos binarios como texto
+- Permite enviar audio en un objeto JSON sin corromper los datos
+
+### Configuración para Google Cloud
+
+```typescript
+    const apiKey = process.env.GOOGLE_CLOUD_API_KEY;
+    
+    if (!apiKey) {
+      console.error("GOOGLE_CLOUD_API_KEY is not set");
+      return NextResponse.json(
+        { error: "Server configuration error" },
+        { status: 500 }
+      );
+    }
+```
+
+**¿Por qué verificar la API key en cada request?**
+- Evita que la aplicación falle silenciosamente
+- Proporciona feedback claro durante el desarrollo
+- Retorna 500 (Server Error) porque es un problema de configuración, no del cliente
+
+### Construcción de la Solicitud
+
+```typescript
+    const response = await fetch(
+      `https://speech.googleapis.com/v1/speech:recognize?key=${apiKey}`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          config: {
+            encoding: "WEBM_OPUS",
+            sampleRateHertz: 48000,
+            languageCode: "es-ES",
+            alternativeLanguageCodes: ["en-US"],
+          },
+          audio: {
+            content: base64Audio,
+          },
+        }),
+      }
+    );
+```
+
+**Desglose de la configuración:**
+
+#### `encoding: "WEBM_OPUS"`
+- Debe coincidir exactamente con el formato que envió el cliente
+- Si no coincide, Google Cloud no podrá decodificar el audio
+- Otros valores posibles: `LINEAR16`, `FLAC`, `MP3`, etc.
+
+#### `sampleRateHertz: 48000`
+- Frecuencia de muestreo del audio
+- 48kHz es el estándar para grabaciones de alta calidad
+- Debe coincidir con la tasa de muestreo real del audio
+- Valores comunes: 16000 (teléfono), 44100 (CD), 48000 (audio profesional)
+
+**¿Por qué es importante la tasa de muestreo?**
+- Una tasa incorrecta hará que Google Cloud interprete mal la frecuencia de la voz
+- Resultará en transcripciones incorrectas o errores
+
+#### `languageCode: "es-ES"`
+- Idioma principal para el reconocimiento de voz
+- "es-ES" = Español de España
+- Otras opciones: "es-MX" (México), "es-CO" (Colombia), etc.
+
+**¿Importa la variante regional?**
+- Sí, cada variante tiene modelos entrenados para acentos y vocabulario regional
+- Mejora la precisión para palabras y expresiones locales
+
+#### `alternativeLanguageCodes: ["en-US"]`
+- Idiomas de respaldo si detecta que no es español
+- Útil en aplicaciones multilingües
+- Google Cloud intenta primero "es-ES", si falla prueba "en-US"
+
+### Procesamiento de la Respuesta
+
+```typescript
+    const data = await response.json();
+
+    if (!response.ok) {
+      console.error("Google Cloud API error:", data);
+      return NextResponse.json(
+        { error: "Transcription failed", details: data },
+        { status: response.status }
+      );
+    }
+```
+
+**¿Por qué verificar `response.ok`?**
+- Google Cloud puede retornar 200 con un error en el body
+- O retornar 4xx/5xx directamente
+- Esta verificación cubre ambos casos
+
+```typescript
+    const transcript = data.results
+      ?.map((result: any) => result.alternatives[0].transcript)
+      .join(" ")
+      .trim();
+```
+
+**¿Qué significa esta estructura?**
+
+Google Cloud retorna:
+```json
+{
+  "results": [
+    {
+      "alternatives": [
+        {
+          "transcript": "hola mundo",
+          "confidence": 0.95
+        }
+      ]
+    },
+    {
+      "alternatives": [
+        {
+          "transcript": "cómo estás",
+          "confidence": 0.92
+        }
+      ]
+    }
+  ]
+}
+```
+
+**¿Por qué múltiples `results`?**
+- Google Cloud puede dividir el audio en segmentos
+- Cada segmento tiene su propio resultado
+- Necesitamos combinarlos para obtener la transcripción completa
+
+**¿Por qué `alternatives[0]`?**
+- Google Cloud puede retornar múltiples alternativas de transcripción
+- La primera (`[0]`) es siempre la de mayor confianza
+- Las demás son alternativas menos probables
+
+```typescript
+    if (!transcript) {
+      return NextResponse.json(
+        { error: "No transcription found" },
+        { status: 400 }
+      );
+    }
+
+    return NextResponse.json({ transcript });
+```
+
+**¿Por qué validar que hay transcripción?**
+- El audio puede ser silencio o ruido
+- Google Cloud retornaría `results: []`
+- Mejor informar al usuario que no se detectó voz
+
+---
+
+## 3. Configuración de Google Cloud
+
+### Pasos Previos Requeridos
+
+#### 1. Crear un Proyecto en Google Cloud
+
+```bash
+# En Google Cloud Console
+1. Ir a: https://console.cloud.google.com/
+2. Crear nuevo proyecto: "poc-audio-univalle"
+3. Anotar el Project ID
+```
+
+**¿Por qué crear un proyecto dedicado?**
+- Aísla facturación y cuotas de otros proyectos
+- Facilita administración de permisos
+- Permite eliminar todos los recursos fácilmente al terminar
+
+#### 2. Habilitar la API de Speech-to-Text
+
+```bash
+# En la Cloud Console
+1. Ir a "APIs & Services" > "Library"
+2. Buscar "Cloud Speech-to-Text API"
+3. Click en "Enable"
+```
+
+**¿Por qué hay que habilitar la API?**
+- Google Cloud tiene cientos de APIs
+- Por seguridad y costos, todas están deshabilitadas por defecto
+- Solo pagas por las que uses
+
+#### 3. Crear una API Key
+
+```bash
+# En la Cloud Console
+1. Ir a "APIs & Services" > "Credentials"
+2. Click "Create Credentials" > "API Key"
+3. Copiar la key generada
+```
+
+**¿Por qué usar API Key y no OAuth?**
+- **API Key**: Autenticación simple, ideal para server-to-server
+- **OAuth**: Para apps que actúan en nombre de usuarios
+- Aquí el servidor llama a Google Cloud directamente, no necesitamos OAuth
+
+#### 4. Restringir la API Key (Importante)
+
+```bash
+# En la configuración de la API Key
+1. Click en "Restrict Key"
+2. En "API restrictions" seleccionar:
+   - "Restrict key"
+   - Marcar solo "Cloud Speech-to-Text API"
+3. Guardar
+```
+
+**¿Por qué restringir?**
+- Si la key se filtra, solo puede usarse para Speech-to-Text
+- No podrían usar la misma key para otras APIs de Google Cloud
+- Principio de seguridad: mínimo privilegio necesario
+
+### Variables de Entorno
+
+```bash
+# Archivo: .env.local
+GOOGLE_CLOUD_API_KEY=AIza...
+```
+
+**¿Por qué `.env.local` y no `.env`?**
+- `.env.local` no se versiona en Git (está en `.gitignore`)
+- Previene que las credenciales se suban accidentalmente
+- `.env` se usa solo como plantilla documentada
+
+---
+
+## 4. Flujo Completo: De Voz a Texto
+
+### Diagrama de Secuencia
+
+```
+Usuario                  Navegador              Next.js API          Google Cloud
+  │                          │                        │                    │
+  │ Click Micrófono          │                        │                    │
+  ├─────────────────────────▶│                        │                    │
+  │                          │                        │                    │
+  │                          │ getUserMedia()         │                    │
+  │                          │ ┌────────────┐         │                    │
+  │                          │ │ Grabando.. │         │                    │
+  │                          │ └────────────┘         │                    │
+  │                          │ Acumulando chunks      │                    │
+  │                          │                        │                    │
+  │ Click Detener            │                        │                    │
+  ├─────────────────────────▶│                        │                    │
+  │                          │                        │                    │
+  │                          │ Combinar chunks        │                    │
+  │                          │ Crear Blob             │                    │
+  │                          │                        │                    │
+  │                          │ POST /api/speech-to-text                    │
+  │                          │ FormData(audio.webm)   │                    │
+  │                          ├───────────────────────▶│                    │
+  │                          │                        │                    │
+  │                          │                        │ Blob→ArrayBuffer   │
+  │                          │                        │ ArrayBuffer→Buffer │
+  │                          │                        │ Buffer→Base64      │
+  │                          │                        │                    │
+  │                          │                        │ POST /v1/speech:recognize
+  │                          │                        │ {config, audio}    │
+  │                          │                        ├───────────────────▶│
+  │                          │                        │                    │
+  │                          │                        │                    │ Decodificar Opus
+  │                          │                        │                    │ Analizar frecuencias
+  │                          │                        │                    │ Modelo de IA (español)
+  │                          │                        │                    │ Generar transcripción
+  │                          │                        │                    │
+  │                          │                        │ {results: [...]}   │
+  │                          │                        │◀───────────────────┤
+  │                          │                        │                    │
+  │                          │                        │ Combinar results   │
+  │                          │                        │ Extraer transcript │
+  │                          │                        │                    │
+  │                          │ {transcript: "hola"}   │                    │
+  │                          │◀───────────────────────┤                    │
+  │                          │                        │                    │
+  │                          │ setTranscript()        │                    │
+  │                          │ Actualizar input       │                    │
+  │◀─────────────────────────┤                        │                    │
+  │ Ve el texto en pantalla  │                        │                    │
+  │                          │                        │                    │
+```
+
+### Tiempo Estimado por Paso
+
+1. **Grabación**: Variable (usuario decide)
+2. **Combinación de chunks**: ~10-50ms
+3. **Upload a Next.js**: ~100-500ms (depende de conexión)
+4. **Conversión a base64**: ~10-30ms
+5. **Request a Google Cloud**: ~200-800ms (depende de región)
+6. **Procesamiento en Google Cloud**: ~500ms-2s (depende de duración del audio)
+7. **Response**: ~100-300ms
+8. **Actualización UI**: ~10-50ms
+
+**Total aproximado**: 1-4 segundos después de detener grabación
+
+---
+
+## 5. Manejo de Errores
+
+### Errores Comunes y Soluciones
+
+#### Error: "API key not valid"
+
+```json
+{
+  "error": {
+    "code": 400,
+    "message": "API key not valid. Please pass a valid API key."
+  }
+}
+```
+
+**Causas**:
+1. La API key está mal copiada
+2. La API key fue eliminada
+3. La API key no tiene permisos para Speech-to-Text
+
+**Solución**:
+```bash
+# Verificar en .env.local
+GOOGLE_CLOUD_API_KEY=AIzaSyC...  # ← Sin espacios, sin comillas
+
+# Verificar en Google Cloud Console que la key existe
+# Verificar que tiene restricción a Speech-to-Text API
+```
+
+#### Error: "PERMISSION_DENIED"
+
+```json
+{
+  "error": {
+    "code": 403,
+    "message": "Cloud Speech-to-Text API has not been used..."
+  }
+}
+```
+
+**Causa**: La API no está habilitada en el proyecto
+
+**Solución**:
+```bash
+# Ir a: https://console.cloud.google.com/apis/library
+# Buscar: Cloud Speech-to-Text API
+# Click: Enable
+```
+
+#### Error: "Invalid audio format"
+
+```json
+{
+  "error": {
+    "code": 400,
+    "message": "Invalid recognition 'config': bad encoding.."
+  }
+}
+```
+
+**Causa**: El encoding en config no coincide con el audio real
+
+**Solución**:
+```typescript
+// Verificar que MediaRecorder usa:
+mimeType: "audio/webm;codecs=opus"
+
+// Y que la config en el API envía:
+encoding: "WEBM_OPUS"  // ← Deben coincidir
+```
+
+#### Error: "Sample rate mismatch"
+
+```json
+{
+  "error": {
+    "code": 400,
+    "message": "Sample rate must match..."
+  }
+}
+```
+
+**Solución**:
+```typescript
+// La mayoría de navegadores graban a 48kHz
+// Usar siempre:
+sampleRateHertz: 48000
+
+// Si tienes dudas, puedes omitir este campo
+// Google Cloud lo detectará automáticamente
+```
+
+---
+
+## 6. Optimizaciones Implementadas
+
+### 1. Uso de Refs en Lugar de State para Chunks
+
+```typescript
+// ❌ MAL - Causa re-renders en cada chunk
+const [audioChunks, setAudioChunks] = useState<Blob[]>([]);
+mediaRecorder.ondataavailable = (event) => {
+  setAudioChunks(prev => [...prev, event.data]); // Re-render!
+};
+
+// ✅ BIEN - Sin re-renders
+const audioChunksRef = useRef<Blob[]>([]);
+mediaRecorder.ondataavailable = (event) => {
+  audioChunksRef.current.push(event.data); // No re-render
+};
+```
+
+**Por qué**: Durante la grabación pueden generarse 10-50 chunks. Cada `setState` causaría un re-render innecesario.
+
+### 2. Cleanup de Streams
+
+```typescript
+const stopRecording = async () => {
+  // ... detener grabación
+  
+  // Liberar recursos del micrófono
+  const tracks = mediaRecorderRef.current?.stream.getTracks();
+  tracks?.forEach((track) => track.stop());
+  
+  audioChunksRef.current = []; // Limpiar memoria
+};
+```
+
+**Por qué**: 
+- Si no se detienen los tracks, el micrófono permanece activo (indicador rojo en navegador)
+- Los chunks acumulados ocupan memoria RAM
+- Es importante limpiar después de cada grabación
+
+### 3. Estados de Carga Diferenciados
+
+```typescript
+const [isRecording, setIsRecording] = useState(false);
+const [isTranscribing, setIsTranscribing] = useState(false);
+```
+
+**Por qué dos estados separados**:
+- Permiten diferentes indicadores visuales
+- `isRecording`: Muestra botón rojo pulsante
+- `isTranscribing`: Muestra "Transcribing audio..." con spinner
+- El usuario entiende en qué fase está el proceso
+
+---
+
+## 7. Consideraciones de Costos
+
+### Cuotas Gratuitas de Google Cloud
+
+```
+Primeros 60 minutos/mes: GRATIS
+Después de 60 minutos: $0.006 USD por cada 15 segundos
+
+Ejemplo:
+- 10 grabaciones de 30 segundos cada una = 5 minutos
+- 5 minutos << 60 minutos → GRATIS
+- 200 grabaciones de 30 segundos = 100 minutos
+- 40 minutos excedentes = 160 chunks de 15s
+- 160 × $0.006 = $0.96 USD
+```
+
+### Estrategias para Reducir Costos en Producción
+
+#### 1. Limitar Duración de Grabaciones
+
+```typescript
+const MAX_RECORDING_TIME = 30000; // 30 segundos
+
+const startRecording = async () => {
+  // ... código existente
+  
+  const timeoutId = setTimeout(() => {
+    stopRecording();
+    alert("Máximo 30 segundos de grabación");
+  }, MAX_RECORDING_TIME);
+  
+  // Guardar timeout para limpiar si detienen manualmente
+  timeoutRef.current = timeoutId;
+};
+```
+
+#### 2. Comprimir Audio Antes de Enviar
+
+```typescript
+// Reducir bitrate de Opus
+const mediaRecorder = new MediaRecorder(stream, {
+  mimeType: "audio/webm;codecs=opus",
+  audioBitsPerSecond: 16000, // Menor calidad = menor tamaño
+});
+```
+
+**Nota**: Menor bitrate = menor precisión de transcripción. Encontrar el balance.
+
+#### 3. Caché de Transcripciones Comunes
+
+```typescript
+// En producción, cachear frases comunes
+const transcriptionCache = new Map<string, string>();
+
+// Generar hash del audio
+const audioHash = await crypto.subtle.digest('SHA-256', arrayBuffer);
+const cached = transcriptionCache.get(audioHash);
+
+if (cached) {
+  return NextResponse.json({ transcript: cached });
+}
+
+// Si no está en caché, llamar a Google Cloud
+// Guardar en caché el resultado
+```
+
+---
+
+## 8. Testing y Debugging
+
+### Logs Útiles
+
+En el endpoint Next.js:
+
+```typescript
+export async function POST(request: NextRequest) {
+  console.log("🎤 Speech-to-text request received");
+  
+  const audioFile = formData.get("audio") as Blob;
+  console.log("📊 Audio size:", audioFile.size, "bytes");
+  console.log("📊 Audio type:", audioFile.type);
+  
+  const base64Audio = buffer.toString("base64");
+  console.log("📊 Base64 length:", base64Audio.length);
+  
+  const response = await fetch(...);
+  console.log("☁️  Google Cloud response status:", response.status);
+  
+  const data = await response.json();
+  console.log("📝 Transcription:", data);
+}
+```
+
+### Verificar Audio en el Navegador
+
+```typescript
+// En use-speech-to-text.ts
+const audioBlob = new Blob(audioChunksRef.current, {
+  type: "audio/webm;codecs=opus",
+});
+
+// Debug: Reproducir el audio grabado
+const audioUrl = URL.createObjectURL(audioBlob);
+const audio = new Audio(audioUrl);
+audio.play(); // Escuchar lo que se grabó
+
+console.log("Audio blob size:", audioBlob.size);
+console.log("Audio blob type:", audioBlob.type);
+```
+
+### Herramientas de Debugging
+
+1. **Chrome DevTools Network Tab**:
+   - Ver el request a `/api/speech-to-text`
+   - Verificar que el FormData contiene el audio
+   - Ver tiempo de respuesta
+
+2. **Google Cloud Console**:
+   - Ir a "APIs & Services" > "Dashboard"
+   - Ver requests por minuto
+   - Ver errores en tiempo real
+
+3. **Logs de Next.js**:
+   ```bash
+   # Ver logs en consola durante desarrollo
+   pnpm dev
+   
+   # Filtrar solo logs de speech-to-text
+   pnpm dev | grep "speech"
+   ```
+
+---
+
+## 9. Alternativas Consideradas
+
+### ¿Por qué Google Cloud y no otras opciones?
+
+#### Whisper de OpenAI
+```
+Pros:
+- Alta precisión
+- Soporte de 99+ idiomas
+- Modelo de código abierto
+
+Contras:
+- Requiere GPU para ejecutar localmente
+- API más costosa que Google Cloud
+- Mayor latencia
+```
+
+#### Web Speech API del Navegador
+```javascript
+const recognition = new webkitSpeechRecognition();
+recognition.start();
+```
+
+```
+Pros:
+- Completamente gratis
+- Sin latencia de red
+- Funciona offline
+
+Contras:
+- Solo funciona en Chrome/Edge
+- Requiere conexión a internet (usa servicios de Google)
+- No permite configuración avanzada
+- Difícil de debuggear
+```
+
+#### Azure Speech Service
+```
+Pros:
+- Excelente precisión
+- Buena documentación
+- Integración con otros servicios Azure
+
+Contras:
+- Más costoso que Google Cloud
+- Requiere cuenta de Azure
+- Curva de aprendizaje más alta
+```
+
+**Conclusión**: Google Cloud ofrece el mejor balance de costo, precisión y facilidad de implementación para una POC.
+
+---
+
+## 10. Mejoras Futuras
+
+### 1. Streaming de Audio
+
+Actualmente: Audio completo → Transcripción completa
+
+Posible: Audio en tiempo real → Transcripción en tiempo real
+
+```typescript
+// Usar streaming recognition de Google Cloud
+const stream = recognizeStream({
+  config: {
+    encoding: 'WEBM_OPUS',
+    sampleRateHertz: 48000,
+    languageCode: 'es-ES',
+    interimResults: true, // Resultados parciales
+  },
+});
+
+mediaRecorder.ondataavailable = (event) => {
+  stream.write(event.data); // Enviar chunks en tiempo real
+};
+
+stream.on('data', (data) => {
+  if (data.results[0].isFinal) {
+    console.log(data.results[0].alternatives[0].transcript);
+  }
+});
+```
+
+**Ventajas**:
+- Usuario ve transcripción mientras habla
+- Puede corregir sobre la marcha
+- Mejor UX para grabaciones largas
+
+### 2. Detección Automática de Idioma
+
+```typescript
+// Remover languageCode fijo
+config: {
+  encoding: "WEBM_OPUS",
+  sampleRateHertz: 48000,
+  // languageCode: "es-ES", ← Comentar esto
+  alternativeLanguageCodes: ["es-ES", "en-US", "fr-FR"], 
+  enableAutomaticPunctuation: true, // Bonus: Puntuación automática
+}
+```
+
+### 3. Configuración por Usuario
+
+```typescript
+// Permitir al usuario elegir el idioma
+interface SpeechConfig {
+  language: 'es-ES' | 'en-US' | 'pt-BR';
+  sampleRate: 16000 | 48000;
+}
+
+const userConfig = getUserPreferences(); // Desde localStorage
+
+config: {
+  languageCode: userConfig.language,
+  sampleRateHertz: userConfig.sampleRate,
+}
+```
+
+---
+
+## Conclusión
+
+Esta implementación de Google Cloud Speech-to-Text demuestra:
+
+1. **Arquitectura Clara**: Separación entre cliente (captura), servidor (proxy) y servicio (transcripción)
+2. **Seguridad**: API keys en servidor, nunca expuestas al cliente
+3. **Optimización**: Uso eficiente de refs, limpieza de recursos, estados diferenciados
+4. **Manejo de Errores**: Validaciones en cada paso, mensajes claros
+5. **Escalabilidad**: Fácil agregar features como streaming o múltiples idiomas
+
+El código está diseñado para ser:
+- **Educativo**: Comentado y explicado en detalle
+- **Mantenible**: Funciones pequeñas con responsabilidades claras
+- **Extensible**: Fácil agregar nuevas funcionalidades
+
+---
+
+## Referencias Técnicas
+
+- [Google Cloud Speech-to-Text Documentation](https://cloud.google.com/speech-to-text/docs)
+- [MediaRecorder API - MDN](https://developer.mozilla.org/en-US/docs/Web/API/MediaRecorder)
+- [Next.js API Routes](https://nextjs.org/docs/api-routes/introduction)
+- [Opus Codec](https://opus-codec.org/)
+
+---
+
+**Universidad del Valle** | Proyecto Integrador II-01 | Octubre 2025
 
 ## Descripción General
 
