@@ -231,7 +231,7 @@ function ChatInner() {
               messages={allMessages as Message[]}
             />
           ))}
-          
+
           {/* AI is thinking indicator */}
           {isLoading && (
             <div className="flex items-start gap-3 px-4 py-3">
@@ -243,7 +243,7 @@ function ChatInner() {
               </div>
             </div>
           )}
-          
+
           <div ref={messagesEndRef} />
         </div>
 
@@ -256,7 +256,7 @@ function ChatInner() {
                 <span>Transcribing audio...</span>
               </div>
             )}
-            
+
             <div
               className="w-full min-h-[60px] cursor-text rounded-chat flex items-center gap-2"
               onClick={(e) => {

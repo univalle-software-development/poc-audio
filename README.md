@@ -1,487 +1,456 @@
-# Configuración de Google Cloud Speech-to-Text
+# POC Audio - Aplicación de Chat con IA y Speech-to-Text
 
-Este documento explica paso a paso cómo se implementó la funcionalidad de Speech-to-Text usando Google Cloud en nuestro POC de chat con IA.
+## Descripción General
 
-## 📋 Tabla de Contenidos
+Este proyecto constituye una prueba de concepto (POC) desarrollada para el curso Proyecto Integrador II-01 de la Universidad del Valle. La aplicación integra tecnologías de inteligencia artificial conversacional con capacidades de reconocimiento de voz, permitiendo a los usuarios interactuar mediante texto o voz con un asistente basado en modelos de lenguaje de gran escala.
 
-1. [Requisitos Previos](#requisitos-previos)
-2. [Configuración en Google Cloud Platform](#configuración-en-google-cloud-platform)
-3. [Implementación en el Proyecto](#implementación-en-el-proyecto)
-4. [Arquitectura y Flujo de Datos](#arquitectura-y-flujo-de-datos)
-5. [Archivos Creados y Modificados](#archivos-creados-y-modificados)
-6. [Seguridad y Mejores Prácticas](#seguridad-y-mejores-prácticas)
-7. [Pruebas y Verificación](#pruebas-y-verificación)
+La arquitectura implementada combina Next.js como framework principal, Convex como base de datos reactiva en tiempo real, Google Cloud Speech-to-Text para la transcripción de audio, y la API de OpenAI para la generación de respuestas conversacionales.
 
----
+## Contexto Académico
 
-## 🎯 Requisitos Previos
+**Institución**: Universidad del Valle  
+**Curso**: Proyecto Integrador II-01  
+**Equipo**: Golangers  
+**Período**: Octubre 2025  
+**Repository**: univalle-software-development/poc-audio
 
-Antes de comenzar, necesitas:
+## Arquitectura del Sistema
 
-- ✅ Una cuenta de Google Cloud Platform (GCP)
-- ✅ Un proyecto creado en GCP
-- ✅ Tarjeta de crédito vinculada (Google ofrece $300 USD de créditos gratuitos)
-- ✅ Node.js y pnpm instalados
-- ✅ Proyecto Next.js funcionando
+### Stack Tecnológico
 
----
+El proyecto se fundamenta en las siguientes tecnologías y servicios:
 
-## ☁️ Configuración en Google Cloud Platform
+#### Frontend
+- **Next.js 13.5.1**: Framework de React que proporciona renderizado del lado del servidor (SSR), generación de sitios estáticos (SSG) y rutas de API serverless.
+- **React 18.2.0**: Biblioteca principal para la construcción de interfaces de usuario reactivas.
+- **TypeScript 5.2.2**: Superset de JavaScript que añade tipado estático, mejorando la robustez del código y la experiencia de desarrollo.
+- **Tailwind CSS 3.3.3**: Framework de CSS utilitario que permite un diseño responsive y consistente mediante clases predefinidas.
 
-### Paso 1: Crear/Seleccionar un Proyecto
+#### Backend y Base de Datos
+- **Convex 1.22.0**: Plataforma de backend que proporciona una base de datos reactiva con sincronización en tiempo real, funciones serverless y gestión de estado global.
+- **OpenAI API**: Servicio de inteligencia artificial que provee acceso a modelos de lenguaje para la generación de respuestas conversacionales. El modelo implementado es GPT-5-nano, seleccionado por su balance entre rendimiento y costo para entornos de prueba.
 
-1. Ve a [Google Cloud Console](https://console.cloud.google.com/)
-2. En la barra superior, haz clic en el selector de proyectos
-3. Crea un nuevo proyecto o selecciona uno existente
-4. Dale un nombre descriptivo (ej: `poc-audio-speech-to-text`)
+#### Servicios de Terceros
+- **Google Cloud Speech-to-Text API**: Servicio de reconocimiento automático de voz (ASR) que convierte audio hablado en texto transcrito. Configurado para soportar español (es-ES) como idioma principal e inglés (en-US) como alternativa.
 
-**¿Por qué?** Cada proyecto en GCP es un espacio aislado con sus propias APIs, credenciales y facturación.
+#### Bibliotecas Complementarias
+- **Radix UI**: Conjunto de componentes de interfaz accesibles y sin estilo predefinido, utilizados como base para elementos como diálogos, menús desplegables y tooltips.
+- **React Textarea Autosize**: Componente que ajusta automáticamente la altura del área de texto según el contenido.
+- **Lucide React**: Biblioteca de iconos SVG optimizados para React.
 
-### Paso 2: Habilitar la API de Speech-to-Text
+### Patrón de Arquitectura
 
-1. En el menú lateral, ve a **APIs & Services** → **Library**
-2. Busca "Cloud Speech-to-Text API"
-3. Haz clic en la API y selecciona **Enable**
-4. Espera unos segundos mientras se habilita
+La aplicación sigue una arquitectura de tres capas claramente definidas:
 
-**¿Por qué?** Por defecto, las APIs de Google Cloud están deshabilitadas. Habilitarla permite que tu proyecto pueda usarla.
+#### Capa de Presentación
+Compuesta por componentes React organizados en el directorio `components/`. Los componentes principales incluyen:
 
-### Paso 3: Crear Credenciales (API Key)
+- **Chat Component**: Orquesta la interfaz de usuario del chat, gestionando la visualización de mensajes, el input del usuario y los controles de interacción.
+- **ChatMessage Component**: Renderiza mensajes individuales con formato diferenciado para mensajes del usuario y del asistente.
+- **Loading Indicators**: Componentes especializados que proporcionan retroalimentación visual durante operaciones asíncronas como la transcripción de audio y la generación de respuestas.
 
-1. Ve a **APIs & Services** → **Credentials**
-2. Haz clic en **Create Credentials** → **API Key**
-3. Se generará una API key automáticamente
-4. **IMPORTANTE**: Copia la API key inmediatamente
+#### Capa de Lógica de Negocio
+Implementada mediante hooks personalizados de React y acciones de Convex:
 
-**¿Por qué?** La API key es como una contraseña que permite que tu aplicación se comunique con Google Cloud.
+- **useSpeechToText**: Hook que encapsula toda la lógica relacionada con la grabación de audio mediante MediaRecorder API, la transmisión de datos al servidor y la gestión de estados de transcripción.
+- **useConvexChat**: Hook que gestiona el estado del chat, incluyendo mensajes, entrada de usuario y comunicación con el backend de Convex.
+- **Convex Actions**: Funciones serverless que ejecutan operaciones asíncronas como llamadas a APIs externas (OpenAI, Google Cloud).
 
-### Paso 4: Restringir la API Key (Seguridad)
+#### Capa de Datos
+Gestionada por Convex, que proporciona:
 
-1. Haz clic en la API key recién creada (ícono de lápiz/editar)
-2. En **API restrictions**:
-   - Selecciona "Restrict key"
-   - Marca solo **"Cloud Speech-to-Text API"**
-3. Guarda los cambios
+- **Schema Definitions**: Definiciones tipadas de las estructuras de datos almacenadas.
+- **Queries**: Funciones reactivas que recuperan datos y se actualizan automáticamente cuando los datos cambian.
+- **Mutations**: Funciones que modifican el estado de la base de datos de forma transaccional.
 
-**¿Por qué?** Si alguien obtiene tu API key, solo podrá usarla para Speech-to-Text, no para otros servicios de Google Cloud que podrían ser más costosos.
+## Flujo de Datos y Comunicación
 
-### Paso 5: Configurar la API Key en Variables de Entorno
+### Flujo de Interacción por Texto
 
-Crea un archivo `.env.local` en la raíz del proyecto:
+1. El usuario ingresa texto en el componente de input.
+2. Al enviar, se dispara una mutación de Convex que almacena el mensaje del usuario en la base de datos.
+3. La mutación desencadena una acción que envía el historial de conversación al modelo de OpenAI.
+4. OpenAI procesa el contexto y genera una respuesta.
+5. La respuesta se almacena en Convex mediante otra mutación.
+6. Los queries reactivos detectan el cambio y actualizan automáticamente la interfaz, mostrando la respuesta del asistente.
 
-```bash
-GOOGLE_CLOUD_API_KEY=tu-api-key-aqui
-```
+### Flujo de Interacción por Voz
 
-**¿Por qué `.env.local`?**
-- ✅ Está en `.gitignore` por defecto (no se sube a GitHub)
-- ✅ Next.js lo carga automáticamente
-- ✅ Las variables sin `NEXT_PUBLIC_` solo están disponibles en el servidor (más seguro)
+1. El usuario activa el botón de micrófono, iniciando la captura de audio mediante la MediaRecorder API del navegador.
+2. Durante la grabación, el audio se acumula en fragmentos (chunks) almacenados en memoria.
+3. Al detener la grabación, los fragmentos se combinan en un Blob con formato WebM Opus.
+4. El hook `useSpeechToText` transmite el Blob mediante FormData a la ruta API `/api/speech-to-text`.
+5. El endpoint de Next.js recibe el audio, lo convierte a formato base64 y lo envía a Google Cloud Speech-to-Text API.
+6. Google Cloud procesa el audio aplicando algoritmos de reconocimiento de voz y retorna la transcripción en formato JSON.
+7. El texto transcrito se recibe en el hook y se actualiza en el estado local.
+8. Un efecto de React detecta la actualización y coloca automáticamente la transcripción en el input del chat.
+9. El usuario puede revisar, editar y enviar el texto transcrito, siguiendo entonces el flujo de interacción por texto.
 
----
+## Implementación de Speech-to-Text
 
-## 💻 Implementación en el Proyecto
+### Configuración de Google Cloud Platform
 
-### Paso 1: Instalación de Dependencias
+La integración con Google Cloud Speech-to-Text requiere una configuración previa en la plataforma:
 
-```bash
-pnpm add @google-cloud/speech
-```
+1. **Creación del Proyecto**: Se establece un proyecto dedicado en Google Cloud Platform, lo cual permite aislar recursos, configuraciones y facturación.
 
-**¿Por qué?** Aunque usamos la REST API directamente, el paquete oficial de Google Cloud nos da tipos TypeScript y utilidades útiles.
+2. **Habilitación de la API**: La Cloud Speech-to-Text API debe habilitarse explícitamente para el proyecto. Las APIs de Google Cloud están deshabilitadas por defecto como medida de seguridad y control de costos.
 
-### Paso 2: Crear el Endpoint de API
+3. **Generación de Credenciales**: Se crea una API Key que actúa como mecanismo de autenticación. Esta clave permite que las solicitudes desde la aplicación sean autorizadas por Google Cloud.
 
-**Archivo**: `app/api/speech-to-text/route.ts`
+4. **Restricción de Credenciales**: Como práctica de seguridad, la API Key se restringe para que únicamente pueda utilizarse con la Speech-to-Text API, minimizando el riesgo en caso de exposición accidental.
 
-```typescript
-import { NextRequest, NextResponse } from "next/server";
+### Arquitectura del Endpoint
 
-export async function POST(request: NextRequest) {
-  // 1. Recibir el archivo de audio del cliente
-  const formData = await request.formData();
-  const audioFile = formData.get("audio") as Blob;
-
-  // 2. Convertir el audio a base64 (formato que acepta Google Cloud)
-  const arrayBuffer = await audioFile.arrayBuffer();
-  const base64Audio = Buffer.from(arrayBuffer).toString("base64");
-
-  // 3. Obtener la API key de las variables de entorno
-  const apiKey = process.env.GOOGLE_CLOUD_API_KEY;
-
-  // 4. Llamar a la API de Google Cloud Speech-to-Text
-  const response = await fetch(
-    `https://speech.googleapis.com/v1/speech:recognize?key=${apiKey}`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        config: {
-          encoding: "WEBM_OPUS",        // Formato del audio del navegador
-          sampleRateHertz: 48000,        // Calidad de audio
-          languageCode: "es-ES",         // Español como idioma principal
-          alternativeLanguageCodes: ["en-US"], // Inglés como fallback
-        },
-        audio: { content: base64Audio }
-      }),
-    }
-  );
-
-  // 5. Extraer y devolver la transcripción
-  const data = await response.json();
-  const transcription = data.results
-    ?.map((result: any) => result.alternatives[0]?.transcript)
-    .join(" ") || "";
-
-  return NextResponse.json({ transcription });
-}
-```
-
-**¿Por qué un endpoint de API?**
-- ✅ La API key debe estar en el servidor, nunca en el frontend
-- ✅ Next.js API Routes son serverless y escalables
-- ✅ Podemos manejar errores y validaciones centralizadamente
-
-**¿Por qué estos parámetros?**
-- **WEBM_OPUS**: Formato estándar que usan los navegadores modernos para grabación
-- **48000 Hz**: Tasa de muestreo estándar para audio de alta calidad
-- **es-ES**: Configurado para español de España (puedes cambiarlo)
-- **alternativeLanguageCodes**: Si no detecta español, intenta con inglés
-
-### Paso 3: Crear el Hook de Grabación de Audio
-
-**Archivo**: `hooks/use-speech-to-text.ts`
-
-```typescript
-export function useSpeechToText() {
-  const [isRecording, setIsRecording] = useState(false);
-  const [transcript, setTranscript] = useState("");
-  
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const audioChunksRef = useRef<Blob[]>([]);
-
-  const startRecording = async () => {
-    // 1. Pedir permiso para acceder al micrófono
-    const stream = await navigator.mediaDevices.getUserMedia({ 
-      audio: { channelCount: 1, sampleRate: 48000 } 
-    });
-
-    // 2. Crear el grabador de audio
-    const mediaRecorder = new MediaRecorder(stream, {
-      mimeType: "audio/webm;codecs=opus",
-    });
-
-    // 3. Guardar los chunks de audio mientras graba
-    mediaRecorder.ondataavailable = (event) => {
-      audioChunksRef.current.push(event.data);
-    };
-
-    // 4. Cuando se detiene, enviar a transcribir
-    mediaRecorder.onstop = async () => {
-      const audioBlob = new Blob(audioChunksRef.current, {
-        type: "audio/webm;codecs=opus",
-      });
-      await transcribeAudio(audioBlob);
-      stream.getTracks().forEach((track) => track.stop());
-    };
-
-    mediaRecorder.start();
-    setIsRecording(true);
-  };
-
-  const transcribeAudio = async (audioBlob: Blob) => {
-    const formData = new FormData();
-    formData.append("audio", audioBlob);
-
-    const response = await fetch("/api/speech-to-text", {
-      method: "POST",
-      body: formData,
-    });
-
-    const data = await response.json();
-    setTranscript(data.transcription);
-  };
-
-  return { isRecording, transcript, startRecording, stopRecording };
-}
-```
-
-**¿Por qué un hook personalizado?**
-- ✅ Reutilizable en cualquier componente
-- ✅ Encapsula toda la lógica de grabación
-- ✅ Maneja estados (grabando, transcripción, errores)
-- ✅ Sigue las mejores prácticas de React
-
-**¿Qué hace MediaRecorder?**
-- Es una API nativa del navegador
-- Captura audio del micrófono
-- Lo guarda en chunks (fragmentos) mientras graba
-- Al detener, crea un Blob (archivo binario) con todo el audio
-
-### Paso 4: Integrar en el Componente Chat
-
-**Archivo**: `components/chat.tsx`
-
-```typescript
-import { useSpeechToText } from "@/hooks/use-speech-to-text";
-
-function ChatInner() {
-  const {
-    isRecording,
-    transcript,
-    startRecording,
-    stopRecording,
-  } = useSpeechToText();
-
-  // Cuando hay transcripción, actualizar el input
-  useEffect(() => {
-    if (transcript) {
-      handleInputChange({ target: { value: transcript } } as any);
-    }
-  }, [transcript]);
-
-  const handleRecordingToggle = async () => {
-    if (isRecording) {
-      await stopRecording();
-    } else {
-      await startRecording();
-    }
-  };
-
-  return (
-    <button onClick={handleRecordingToggle}>
-      {isRecording ? <StopIcon /> : <MicrophoneIcon />}
-    </button>
-  );
-}
-```
-
-**¿Por qué este flujo?**
-- ✅ El hook maneja toda la complejidad
-- ✅ El componente solo se preocupa de la UI
-- ✅ Cuando hay transcripción, se actualiza el input automáticamente
-- ✅ El usuario puede editar el texto antes de enviar
-
----
-
-## 🔄 Arquitectura y Flujo de Datos
+El endpoint `/api/speech-to-text` implementado como Next.js API Route proporciona una capa de abstracción entre el cliente y Google Cloud:
+
+**Razones para esta arquitectura**:
+- **Seguridad**: La API Key de Google Cloud permanece en el servidor, nunca se expone al navegador del cliente.
+- **Control**: Permite implementar validaciones, rate limiting y manejo centralizado de errores.
+- **Abstracción**: Desacopla el cliente de los detalles de implementación de Google Cloud, facilitando futuros cambios de proveedor.
+
+**Proceso de transcripción**:
+1. Recepción del audio en formato Blob mediante FormData.
+2. Conversión del Blob a ArrayBuffer y posterior codificación en base64.
+3. Construcción de la solicitud HTTP a Google Cloud con la configuración apropiada.
+4. Procesamiento de la respuesta y extracción del texto transcrito.
+5. Retorno de la transcripción al cliente en formato JSON.
+
+### Configuración de Audio
+
+Los parámetros de configuración para el reconocimiento de voz fueron seleccionados considerando:
+
+- **Encoding (WEBM_OPUS)**: Formato estándar utilizado por MediaRecorder en navegadores modernos. Opus proporciona buena calidad de audio con tasas de compresión eficientes.
+
+- **Sample Rate (48000 Hz)**: Tasa de muestreo de alta fidelidad que captura un amplio rango de frecuencias vocales, mejorando la precisión del reconocimiento.
+
+- **Language Code (es-ES)**: Configurado para español de España como idioma principal, con posibilidad de ajuste según la región objetivo.
+
+- **Alternative Language Codes (en-US)**: Inglés americano como idioma de respaldo, permitiendo que el sistema funcione si detecta entrada en inglés.
+
+## Integración con OpenAI
+
+### Selección del Modelo
+
+El proyecto utiliza GPT-5-nano como modelo de lenguaje, una decisión fundamentada en:
+
+- **Economía**: Con límites de 200,000 tokens por minuto y 2,000,000 tokens por día, resulta apropiado para un entorno de prueba de concepto sin incurrir en costos significativos.
+
+- **Rendimiento**: Proporciona respuestas de calidad suficiente para validar la integración y el flujo de usuario.
+
+- **Disponibilidad**: Los límites de 500 requests por minuto permiten pruebas simultáneas con múltiples usuarios.
+
+### Configuración del System Prompt
+
+El system prompt se configuró de manera genérica y sin restricciones temáticas:
 
 ```
-┌─────────────┐
-│  Usuario    │
-│  (Habla)    │
-└──────┬──────┘
-       │ 1. Click en micrófono
-       ▼
-┌─────────────────────────────┐
-│  Navegador                  │
-│  - MediaRecorder API        │
-│  - Graba audio en WebM Opus │
-└──────┬──────────────────────┘
-       │ 2. Audio Blob
-       ▼
-┌─────────────────────────────┐
-│  Hook: useSpeechToText      │
-│  - Convierte a FormData     │
-│  - Envía a /api/speech-to-text │
-└──────┬──────────────────────┘
-       │ 3. POST request
-       ▼
-┌─────────────────────────────┐
-│  Next.js API Route          │
-│  - Recibe audio             │
-│  - Convierte a base64       │
-│  - Añade API key            │
-└──────┬──────────────────────┘
-       │ 4. HTTPS request
-       ▼
-┌─────────────────────────────┐
-│  Google Cloud               │
-│  Speech-to-Text API         │
-│  - Procesa el audio         │
-│  - Detecta idioma           │
-│  - Transcribe               │
-└──────┬──────────────────────┘
-       │ 5. JSON response
-       ▼
-┌─────────────────────────────┐
-│  Next.js API Route          │
-│  - Extrae transcripción     │
-│  - Formatea respuesta       │
-└──────┬──────────────────────┘
-       │ 6. Transcripción
-       ▼
-┌─────────────────────────────┐
-│  Hook: useSpeechToText      │
-│  - Actualiza estado         │
-│  - Trigger useEffect        │
-└──────┬──────────────────────┘
-       │ 7. Actualiza input
-       ▼
-┌─────────────────────────────┐
-│  Chat Component             │
-│  - Muestra transcripción    │
-│  - Usuario puede editar     │
-│  - Enviar al chat           │
-└─────────────────────────────┘
+You are ChatGPT, a helpful assistant powered by OpenAI. 
+You can assist with a wide range of topics and tasks.
 ```
 
----
+Esta configuración permite que el asistente responda a cualquier consulta sin limitarse a dominios específicos, facilitando la validación de la funcionalidad general del sistema.
 
-## 📁 Archivos Creados y Modificados
+### Gestión de Contexto
 
-### Archivos Nuevos
+Convex Actions maneja la comunicación con OpenAI de la siguiente manera:
 
-1. **`app/api/speech-to-text/route.ts`**
-   - Endpoint serverless de Next.js
-   - Maneja la comunicación con Google Cloud
-   - Protege la API key
+1. **Recuperación del Historial**: Se obtienen todos los mensajes de la conversación actual desde Convex.
+2. **Construcción del Contexto**: Los mensajes se formatean según la estructura esperada por la API de OpenAI, incluyendo roles (user, assistant, system).
+3. **Inclusión del System Prompt**: Se antepone el prompt del sistema al inicio del array de mensajes.
+4. **Envío y Procesamiento**: La solicitud se envía a OpenAI y la respuesta se procesa.
+5. **Persistencia**: La respuesta del modelo se almacena en Convex, manteniendo la continuidad conversacional.
 
-2. **`hooks/use-speech-to-text.ts`**
-   - Hook React personalizado
-   - Maneja grabación de audio
-   - Estados y lifecycle de la transcripción
+## Componentes de Interfaz
 
-3. **`.env.local`** (no commitear)
-   - Variables de entorno locales
-   - API key de Google Cloud
+### Indicadores de Carga
 
-### Archivos Modificados
+Se implementaron dos tipos de indicadores visuales para mejorar la experiencia del usuario:
 
-1. **`components/chat.tsx`**
-   - Import del hook `useSpeechToText`
-   - Integración del botón de micrófono
-   - useEffect para actualizar input con transcripción
+#### Indicador de Transcripción
+Aparece como un badge flotante sobre el área de input durante el proceso de transcripción. Consiste en tres puntos animados con rebote secuencial acompañados del texto "Transcribing audio...". El diseño utiliza:
+- Fondo gris claro (zinc-100) con bordes redondeados completos (pill shape).
+- Sombra suave para elevación visual.
+- Posicionamiento absoluto que no interfiere con otros elementos.
 
-2. **`.env`** (template)
-   - Agregada variable `GOOGLE_CLOUD_API_KEY`
-   - Sirve como referencia para otros desarrolladores
+#### Indicador de Procesamiento de IA
+Se muestra en el área de mensajes cuando el modelo está generando una respuesta. Presenta:
+- Avatar circular con gradiente azul (blue-400 a blue-600) conteniendo las letras "AI".
+- Puntos animados con rebote secuencial.
+- Diseño consistente con los mensajes del chat para coherencia visual.
 
-3. **`package.json`**
-   - Agregada dependencia `@google-cloud/speech`
+Ambos indicadores utilizan animaciones CSS nativas de Tailwind, evitando JavaScript adicional y manteniendo un rendimiento óptimo.
 
----
+### Componente de Chat
 
-## 🔒 Seguridad y Mejores Prácticas
+El componente principal del chat implementa:
 
-### ✅ Lo que hicimos bien
+- **Layout Flexible**: Utiliza Flexbox CSS para distribuir el espacio entre la lista de mensajes y el área de input, adaptándose al viewport del dispositivo.
 
-1. **API Key en el servidor**
-   - ✅ La key nunca llega al navegador
-   - ✅ Usamos Next.js API Routes (serverless)
-   - ✅ Variable de entorno sin `NEXT_PUBLIC_`
+- **Scroll Automático**: Implementa auto-scroll al final de la conversación cuando llegan nuevos mensajes, con lógica para evitar scroll en la carga inicial.
 
-2. **Restricción de la API Key**
-   - ✅ Solo puede usarse para Speech-to-Text
-   - ✅ Limita el daño si se filtra
+- **Responsive Design**: Adapta el diseño mediante breakpoints de Tailwind, ajustando padding, tamaños de fuente y distribución de elementos según el tamaño de pantalla.
 
-3. **`.env.local` en `.gitignore`**
-   - ✅ Las credenciales no se suben a GitHub
-   - ✅ Cada desarrollador usa sus propias keys
+- **Manejo de Estados**: Coordina múltiples estados (isLoading, isRecording, isTranscribing) para actualizar la interfaz apropiadamente.
 
-4. **Validaciones en el endpoint**
-   - ✅ Verificamos que exista el archivo de audio
-   - ✅ Verificamos que exista la API key
-   - ✅ Manejamos errores de Google Cloud
+## Gestión de Variables de Entorno
 
-### ⚠️ Consideraciones de Seguridad
+### Estrategia de Configuración
 
-1. **Rate Limiting**: Considera agregar límites de requests
-2. **Autenticación**: En producción, valida que el usuario esté autenticado
-3. **Tamaño del archivo**: Limita el tamaño máximo del audio
-4. **CORS**: Configura CORS si el frontend está en otro dominio
+El proyecto distingue entre variables de entorno públicas y privadas:
 
----
+**Variables Públicas** (prefijo `NEXT_PUBLIC_`):
+- `NEXT_PUBLIC_CONVEX_URL`: URL del deployment de Convex, accesible desde el navegador para establecer la conexión WebSocket.
 
-## 🧪 Pruebas y Verificación
+**Variables Privadas** (sin prefijo):
+- `GOOGLE_CLOUD_API_KEY`: Credencial de Google Cloud, disponible únicamente en el servidor.
+- `OPENAI_API_KEY`: Credencial de OpenAI, almacenada en el dashboard de Convex para uso en Actions.
 
-### Verificar que funciona
+### Archivos de Configuración
 
-1. **Iniciar el servidor**:
+- **`.env.local`**: Archivo local no versionado que contiene credenciales sensibles para desarrollo.
+- **`.env`**: Archivo versionado que documenta las variables requeridas sin incluir valores reales, sirviendo como plantilla.
+- **`.gitignore`**: Configurado para excluir `.env.local` y otros archivos sensibles del control de versiones.
+
+## Seguridad
+
+### Prácticas Implementadas
+
+1. **Separación de Credenciales**: Las API keys nunca se exponen al cliente, manteniéndose exclusivamente en el servidor.
+
+2. **Restricción de API Keys**: La clave de Google Cloud está limitada a una sola API, reduciendo el impacto de una posible filtración.
+
+3. **Variables de Entorno**: Uso de variables de entorno en lugar de hardcodear credenciales en el código fuente.
+
+4. **Validación en Endpoints**: Los endpoints de API verifican la existencia de datos requeridos antes de procesarlos.
+
+5. **Manejo de Errores**: Implementación de bloques try-catch con logs detallados para facilitar debugging sin exponer información sensible al cliente.
+
+### Consideraciones para Producción
+
+Para un despliegue en producción, se recomiendan mejoras adicionales:
+
+- **Autenticación**: Implementar verificación de identidad del usuario antes de permitir acceso a funcionalidades.
+- **Rate Limiting**: Establecer límites de requests por usuario para prevenir abuso.
+- **CORS**: Configurar políticas de Cross-Origin Resource Sharing apropiadas.
+- **Sanitización de Input**: Validar y limpiar entradas de usuario para prevenir inyecciones.
+- **Monitoreo**: Implementar logging y alertas para detectar comportamientos anómalos.
+
+## Estructura del Proyecto
+
+```
+poc-audio/
+├── app/
+│   ├── api/
+│   │   └── speech-to-text/
+│   │       └── route.ts          # Endpoint de transcripción
+│   ├── globals.css               # Estilos globales y Tailwind
+│   ├── layout.tsx                # Layout principal de la aplicación
+│   ├── page.tsx                  # Página principal del chat
+│   └── providers.tsx             # Provider de Convex
+├── components/
+│   ├── chat.tsx                  # Componente principal del chat
+│   ├── chat-message.tsx          # Renderizado de mensajes individuales
+│   ├── convex-chat-provider.tsx  # Provider y lógica del chat
+│   ├── loading-dots.tsx          # Indicadores de carga
+│   ├── navbar.tsx                # Barra de navegación
+│   └── footer.tsx                # Pie de página
+├── convex/
+│   ├── chat.ts                   # Queries y mutations del chat
+│   ├── multiModelAI.ts           # Actions para OpenAI
+│   ├── speechToText.ts           # Configuración de Speech-to-Text
+│   └── schema.ts                 # Definición del schema de datos
+├── hooks/
+│   ├── use-speech-to-text.ts     # Hook de grabación y transcripción
+│   └── use-toast.ts              # Sistema de notificaciones
+├── lib/
+│   └── utils.ts                  # Utilidades compartidas
+├── docs/
+│   ├── google-cloud-speech-to-text-setup.md  # Guía de configuración
+│   ├── loading-indicators.md                  # Documentación de indicadores
+│   └── environment-variables.md               # Variables de entorno
+└── public/
+    └── golangers.webp            # Logo del equipo
+```
+
+## Desarrollo y Ejecución
+
+### Requisitos del Sistema
+
+- Node.js versión 18 o superior
+- pnpm como gestor de paquetes
+- Cuenta de Google Cloud Platform con facturación habilitada
+- Cuenta de OpenAI con créditos disponibles
+- Cuenta de Convex (gratuita para desarrollo)
+
+### Configuración Inicial
+
+1. **Clonación del Repositorio**:
    ```bash
-   pnpm dev
+   git clone https://github.com/univalle-software-development/poc-audio.git
+   cd poc-audio
    ```
 
-2. **Abrir el navegador**: `http://localhost:3000`
-
-3. **Hacer clic en el botón del micrófono**
-   - Debe pedir permiso para usar el micrófono
-   - El botón debe cambiar a rojo (grabando)
-
-4. **Hablar claramente**
-
-5. **Hacer clic de nuevo para detener**
-   - El audio se envía a Google Cloud
-   - La transcripción aparece en el input
-   - Puedes editar antes de enviar
-
-### Debugging
-
-Si algo falla, revisa:
-
-1. **Console del navegador** (F12)
-   - Errores de permisos del micrófono
-   - Errores de fetch al endpoint
-
-2. **Terminal del servidor** (donde corre `pnpm dev`)
-   - Logs del endpoint `/api/speech-to-text`
-   - Errores de Google Cloud API
-
-3. **Verificar variables de entorno**
-   ```typescript
-   console.log("API Key set:", !!process.env.GOOGLE_CLOUD_API_KEY);
+2. **Instalación de Dependencias**:
+   ```bash
+   pnpm install
    ```
 
-### Errores Comunes
+3. **Configuración de Convex**:
+   ```bash
+   npx convex dev
+   ```
+   Este comando inicializa un proyecto de Convex, genera el código cliente y actualiza el archivo `.env` con la URL del deployment.
 
-| Error | Solución |
-|-------|----------|
-| "API Key not set" | Verifica que `.env.local` existe y tiene la key |
-| "Permission denied" | Permite el acceso al micrófono en el navegador |
-| "Invalid encoding" | El navegador puede no soportar WebM Opus |
-| "Quota exceeded" | Llegaste al límite gratuito de Google Cloud |
+4. **Configuración de Variables de Entorno**:
+   Crear archivo `.env.local` con:
+   ```
+   GOOGLE_CLOUD_API_KEY=<tu-api-key-de-google-cloud>
+   ```
+
+5. **Configuración de OpenAI en Convex**:
+   - Acceder al dashboard de Convex
+   - Navegar a Settings → Environment Variables
+   - Agregar `OPENAI_API_KEY` con el valor correspondiente
+
+### Ejecución en Desarrollo
+
+Para iniciar el servidor de desarrollo:
+
+```bash
+pnpm dev
+```
+
+La aplicación estará disponible en `http://localhost:3000`.
+
+En una terminal separada, mantener Convex en modo desarrollo:
+
+```bash
+npx convex dev
+```
+
+Esto habilita hot-reload tanto para el frontend como para las funciones de Convex.
+
+### Compilación para Producción
+
+```bash
+pnpm build
+pnpm start
+```
+
+El comando `build` genera una versión optimizada de la aplicación, mientras que `start` sirve esta versión en modo producción.
+
+## Consideraciones de Costos
+
+### Google Cloud Speech-to-Text
+
+- **Capa Gratuita**: 60 minutos de transcripción mensual sin costo.
+- **Costo Adicional**: $0.006 USD por cada 15 segundos de audio procesado después de agotar la capa gratuita.
+- **Estrategia de Optimización**: Para una POC, la capa gratuita es suficiente. En producción, considerar límites de duración por grabación y caching de transcripciones comunes.
+
+### OpenAI API
+
+- **Modelo GPT-5-nano**: Diseñado para ser económico con límites de 200,000 TPM (tokens por minuto).
+- **Monitoreo**: Revisar periódicamente el uso en el dashboard de OpenAI para evitar costos inesperados.
+- **Alternativas**: Considerar modelos más pequeños o proveedores alternativos para reducir costos en producción.
+
+### Convex
+
+- **Plan Gratuito**: Suficiente para desarrollo y proyectos pequeños.
+- **Escalabilidad**: Los planes pagos se ajustan según uso, facilitando la transición a producción.
+
+## Mejoras Futuras
+
+### Funcionalidades Técnicas
+
+1. **Detección Automática de Idioma**: Implementar detección del idioma hablado antes de enviar a Google Cloud, mejorando la precisión en entornos multilingües.
+
+2. **Visualización de Forma de Onda**: Agregar representación visual de la amplitud del audio durante la grabación para mejor feedback al usuario.
+
+3. **Edición de Transcripción**: Interfaz de confirmación que permita al usuario revisar y corregir la transcripción antes de enviarla como mensaje.
+
+4. **Historial de Conversaciones**: Implementar persistencia de sesiones múltiples con capacidad de recuperar conversaciones anteriores.
+
+5. **Soporte de Voz Continua**: Permitir entrada de voz sin necesidad de detener manualmente, usando detección de silencios.
+
+### Optimizaciones de Rendimiento
+
+1. **Lazy Loading**: Cargar componentes pesados bajo demanda para reducir el tamaño del bundle inicial.
+
+2. **Memoización**: Aplicar React.memo y useMemo en componentes que renderizan frecuentemente.
+
+3. **Compresión de Audio**: Implementar compresión adicional del audio antes de enviarlo a Google Cloud para reducir latencia y costos.
+
+4. **Caching**: Implementar estrategias de cache para respuestas comunes del modelo de IA.
+
+### Mejoras de UX
+
+1. **Retroalimentación Háptica**: En dispositivos móviles, proporcionar vibración al iniciar/detener grabación.
+
+2. **Atajos de Teclado**: Implementar shortcuts para acciones comunes (Ctrl+Enter para enviar, etc.).
+
+3. **Temas**: Sistema de temas claro/oscuro con preferencia persistente.
+
+4. **Accesibilidad**: Mejorar navegación por teclado, etiquetas ARIA y soporte para lectores de pantalla.
+
+## Lecciones Aprendidas
+
+### Integración de APIs Externas
+
+La experiencia de integrar múltiples APIs externas (Google Cloud, OpenAI) demostró la importancia de una arquitectura bien diseñada con capas de abstracción claras. El uso de Next.js API Routes como capa intermedia resultó valioso tanto para seguridad como para mantenibilidad.
+
+### Manejo de Estado en Aplicaciones Reactivas
+
+Convex como backend reactivo simplificó significativamente la sincronización de estado entre cliente y servidor. La actualización automática de la UI cuando cambian los datos elimina código boilerplate y reduce errores.
+
+### Experiencia de Usuario en Aplicaciones de IA
+
+Los indicadores de carga resultaron cruciales para la percepción de velocidad y confiabilidad de la aplicación. Incluso con tiempos de respuesta de 2-3 segundos, la retroalimentación visual apropiada mantiene al usuario informado y reduce la frustración.
+
+### Gestión de Credenciales
+
+La separación estricta entre variables públicas y privadas, junto con el uso de servicios gestionados (Convex) para variables sensibles, proporciona seguridad sin comprometer la experiencia de desarrollo.
+
+## Conclusiones
+
+Este proyecto de prueba de concepto demuestra exitosamente la viabilidad técnica de integrar tecnologías de reconocimiento de voz con sistemas de inteligencia artificial conversacional. La arquitectura implementada es escalable, mantenible y sigue las mejores prácticas de desarrollo web moderno.
+
+Las tecnologías seleccionadas (Next.js, Convex, Google Cloud, OpenAI) se complementan efectivamente, cada una aportando capacidades especializadas que juntas forman un sistema cohesivo. La separación de responsabilidades entre frontend, backend y servicios externos facilita futuras extensiones y modificaciones.
+
+El proyecto sirve como base sólida para futuras iteraciones que podrían incluir características más avanzadas como análisis de sentimientos, traducción en tiempo real, o integración con sistemas de telefonía para asistentes virtuales.
+
+## Referencias
+
+### Documentación Oficial
+
+- Next.js: https://nextjs.org/docs
+- React: https://react.dev
+- Convex: https://docs.convex.dev
+- Google Cloud Speech-to-Text: https://cloud.google.com/speech-to-text/docs
+- OpenAI API: https://platform.openai.com/docs
+- Tailwind CSS: https://tailwindcss.com/docs
+
+### Recursos Técnicos
+
+- MediaRecorder API: https://developer.mozilla.org/en-US/docs/Web/API/MediaRecorder
+- Web Audio API: https://developer.mozilla.org/en-US/docs/Web/API/Web_Audio_API
+- TypeScript Handbook: https://www.typescriptlang.org/docs/handbook/intro.html
+- React Hooks: https://react.dev/reference/react
+
+### Artículos y Guías
+
+- Best Practices for API Keys: https://cloud.google.com/docs/authentication/api-keys
+- Serverless Architecture: https://martinfowler.com/articles/serverless.html
+- React Performance Optimization: https://react.dev/learn/render-and-commit
+
+## Contacto y Contribución
+
+Este proyecto fue desarrollado como parte del curso Proyecto Integrador II-01 de la Universidad del Valle por el equipo Golangers.
+
+Para consultas académicas o técnicas relacionadas con el proyecto, contactar a través del repositorio oficial en GitHub: https://github.com/univalle-software-development/poc-audio
 
 ---
 
-## 📊 Costos y Límites
-
-### Capa Gratuita de Google Cloud
-
-- **60 minutos gratis** por mes
-- Después: **$0.006 USD** por 15 segundos de audio
-- Para un POC, la capa gratuita es más que suficiente
-
-### Optimizaciones
-
-1. **Usar modelo `gpt-5-nano`** para el chat (más económico)
-2. **Limitar duración de grabación** (ej: máximo 30 segundos)
-3. **Cachear respuestas comunes** si es aplicable
-
----
-
-## 🚀 Próximos Pasos
-
-1. **Mejorar UX**: Agregar visualización de onda de audio mientras graba
-2. **Soporte multi-idioma**: Detectar idioma automáticamente
-3. **Edición de transcripción**: Permitir corregir antes de enviar
-4. **Historial**: Guardar transcripciones anteriores
-5. **Analytics**: Trackear precisión de las transcripciones
-
----
-
-## 📚 Recursos Adicionales
-
-- [Documentación oficial de Google Cloud Speech-to-Text](https://cloud.google.com/speech-to-text/docs)
-- [Next.js API Routes](https://nextjs.org/docs/app/building-your-application/routing/route-handlers)
-- [MediaRecorder API](https://developer.mozilla.org/en-US/docs/Web/API/MediaRecorder)
-- [React Custom Hooks](https://react.dev/learn/reusing-logic-with-custom-hooks)
-
----
-
-## ✍️ Notas Finales
-
-Este documento fue creado para el proyecto **POC Audio - Cloud Speech-to-Text** de la Universidad del Valle, Proyecto Integrador II-01.
-
-**Fecha**: Octubre 7, 2025  
-**Autor**: GitHub Copilot  
-**Repositorio**: `univalle-software-development/poc-audio`
+**Fecha de Última Actualización**: Octubre 7, 2025  
+**Versión**: 1.0.0  
+**Licencia**: MIT
