@@ -213,7 +213,7 @@ async function handleOpenAI(messages: Array<{ role: string; content: string }>) 
     // Cast the messages to the type OpenAI expects
     const response = await openai.chat.completions.create({
       messages: messages as any,
-      model: "gpt-3.5-turbo",
+      model: "gpt-5-nano",
     });
 
     console.log("OpenAI API response:", response.choices[0].message);
