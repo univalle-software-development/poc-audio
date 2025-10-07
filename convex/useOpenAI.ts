@@ -57,7 +57,7 @@ export const streamChat = action({
     try {
       const completion = await openai.chat.completions.create({
         messages: args.messages,
-        model: "gpt-3.5-turbo",
+        model: "gpt-5-nano",
         stream: true,
       });
 
