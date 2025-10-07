@@ -39,7 +39,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body className={`${inter.className} flex flex-col h-screen overflow-hidden`}>
+      <body className={`${inter.className} flex flex-col h-screen overflow-hidden pt-4 pb-4 sm:pt-0 sm:pb-0`}>
         <div className="fixed inset-0 z-[-2] bg-white bg-[radial-gradient(100%_50%_at_50%_0%,rgba(0,163,255,0.13)_0,rgba(0,163,255,0)_50%,rgba(0,163,255,0)_100%)]"></div>
         <Providers>
           {/* <Navbar /> */}
