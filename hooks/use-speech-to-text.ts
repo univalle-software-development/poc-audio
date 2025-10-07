@@ -2,6 +2,7 @@ import { useState, useRef, useCallback } from "react";
 
 interface UseSpeechToTextReturn {
     isRecording: boolean;
+    isTranscribing: boolean;
     transcript: string;
     error: string | null;
     startRecording: () => Promise<void>;
@@ -11,6 +12,7 @@ interface UseSpeechToTextReturn {
 
 export function useSpeechToText(): UseSpeechToTextReturn {
     const [isRecording, setIsRecording] = useState(false);
+    const [isTranscribing, setIsTranscribing] = useState(false);
     const [transcript, setTranscript] = useState("");
     const [error, setError] = useState<string | null>(null);
 
@@ -76,6 +78,7 @@ export function useSpeechToText(): UseSpeechToTextReturn {
 
     const transcribeAudio = async (audioBlob: Blob) => {
         try {
+            setIsTranscribing(true);
             console.log("Sending audio for transcription...");
 
             const formData = new FormData();
@@ -102,6 +105,8 @@ export function useSpeechToText(): UseSpeechToTextReturn {
         } catch (err: any) {
             console.error("Error transcribing audio:", err);
             setError(err.message || "Failed to transcribe audio");
+        } finally {
+            setIsTranscribing(false);
         }
     };
 
@@ -112,6 +117,7 @@ export function useSpeechToText(): UseSpeechToTextReturn {
 
     return {
         isRecording,
+        isTranscribing,
         transcript,
         error,
         startRecording,

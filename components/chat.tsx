@@ -8,6 +8,7 @@ import { useConvexChat, ConvexChatProvider } from "@/components/convex-chat-prov
 import { Message } from "ai";
 import Image from "next/image";
 import { useSpeechToText } from "@/hooks/use-speech-to-text";
+import { LoadingDots } from "@/components/loading-dots";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -50,6 +51,7 @@ function ChatInner() {
   // Speech-to-text hook
   const {
     isRecording,
+    isTranscribing,
     transcript,
     error: speechError,
     startRecording,
@@ -229,11 +231,32 @@ function ChatInner() {
               messages={allMessages as Message[]}
             />
           ))}
+          
+          {/* AI is thinking indicator */}
+          {isLoading && (
+            <div className="flex items-start gap-3 px-4 py-3">
+              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white text-sm font-semibold flex-shrink-0">
+                AI
+              </div>
+              <div className="flex-1 pt-1">
+                <LoadingDots />
+              </div>
+            </div>
+          )}
+          
           <div ref={messagesEndRef} />
         </div>
 
         <div className=" ">
           <form onSubmit={handleSubmit} className="relative">
+            {/* Transcribing indicator */}
+            {isTranscribing && (
+              <div className="absolute -top-10 left-4 bg-zinc-100 px-3 py-2 rounded-full shadow-sm flex items-center gap-2 text-sm text-zinc-600">
+                <LoadingDots />
+                <span>Transcribing audio...</span>
+              </div>
+            )}
+            
             <div
               className="w-full min-h-[60px] cursor-text rounded-chat flex items-center gap-2"
               onClick={(e) => {
