@@ -8,7 +8,7 @@ export function NavLinks() {
       <Link href="/" className="text-gray-600 hover:text-gray-900 transition-colors">
         Home
       </Link>
-      <Link href="/about" className="text-gray-600 hover:text-gray-900 transition-colors">
+      {/* <Link href="/about" className="text-gray-600 hover:text-gray-900 transition-colors">
         About
       </Link>
       <Link href="/projects" className="text-gray-600 hover:text-gray-900 transition-colors">
@@ -26,7 +26,7 @@ export function NavLinks() {
         href="https://github.com/waynesutton/nextjsaichatconvextemplate"
         className="text-gray-600 hover:text-gray-900 transition-colors">
         Repo
-      </Link>
+      </Link> */}
     </div>
   );
 }

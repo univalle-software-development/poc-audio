@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { NavLinks } from "./nav-links";
 
 export function Navbar() {
@@ -32,7 +33,12 @@ export function Navbar() {
       />
       <div className="max-w-7xl mx-auto w-full flex items-center">
         <Link href="/" className="text-xl absolute left-8">
-          Logo
+          <Image
+            src="/golangers.webp"
+            width={50}
+            height={50}
+            alt="Picture of the author"
+          />
         </Link>
         <div className="mx-auto">
           <NavLinks />

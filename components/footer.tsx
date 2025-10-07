@@ -27,9 +27,9 @@ export function Footer() {
 
   return (
     <footer ref={footerRef} className="relative mt-auto">
-      <div className="h-16 flex items-center justify-center">
+      {/* <div className="h-16 flex items-center justify-center">
         <NavLinks />
-      </div>
+      </div> */}
       <div className="h-16 flex items-center px-4 overflow-hidden">
         <div
           ref={tubelightRef}
@@ -37,14 +37,14 @@ export function Footer() {
         />
         <div className="max-w-7xl mx-auto w-full flex items-center justify-between">
           <div className="text-sm text-gray-600">
-            © {new Date().getFullYear()} Your Company. All rights reserved.
+            © {new Date().getFullYear()} Universidad del Valle, PROYECTO INTEGRADOR II-01 .
           </div>
           <div className="flex gap-6">
-            <Link
+            {/* <Link
               href="https://convex.link/nextchatdemo"
               className="text-gray-600 hover:text-gray-900 transition-colors">
               Convex
-            </Link>
+            </Link> */}
             <Link
               href="https://github.com/waynesutton/nextjsaichatconvextemplate"
               className="text-gray-600 hover:text-gray-900 transition-colors">
